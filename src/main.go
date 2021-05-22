@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -194,8 +195,6 @@ func (t *tester) preProcess() {
 	if err != nil {
 		log.Fatalf("Open db err %v", err)
 	}
-
-	log.Warn("Create new db", mdb)
 
 	if _, err = mdb.Exec(fmt.Sprintf("create database `%s`", t.name)); err != nil {
 		log.Fatalf("Executing create db %s err[%v]", t.name, err)
@@ -814,27 +813,17 @@ func (t *tester) resultFileName() string {
 }
 
 func loadAllTests() ([]string, error) {
-	// tests must be in t folder
-	files, err := ioutil.ReadDir("./t")
+	tests := make([]string, 0, 64)
+	err := filepath.Walk("t", func(path string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() && strings.HasSuffix(path, ".test") {
+			name := strings.TrimPrefix(strings.TrimSuffix(path, ".test"), "t/")
+			tests = append(tests, name)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	tests := make([]string, 0, len(files))
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-
-		// the test file must have a suffix .test
-		name := f.Name()
-		if strings.HasSuffix(name, ".test") {
-			name = strings.TrimSuffix(name, ".test")
-
-			tests = append(tests, name)
-		}
-	}
-
 	return tests, nil
 }
 
